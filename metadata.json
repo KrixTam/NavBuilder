@@ -1,0 +1,5 @@
+{
+  "name": "导航页制作工具",
+  "description": "一个简单的导航页面生成工具，支持自定义链接、标题、描述和LOGO，并可导出为ZIP压缩包。",
+  "requestFramePermissions": []
+}

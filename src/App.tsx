@@ -1,0 +1,557 @@
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+import React, { useState } from 'react';
+import { Plus, Trash2, Download, ExternalLink, Info, Image as ImageIcon, Globe, CheckCircle2 } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
+import JSZip from 'jszip';
+import { saveAs } from 'file-saver';
+
+interface NavItem {
+  id: string;
+  title: string;
+  url: string;
+  description?: string;
+  logo?: string;
+}
+
+const DEFAULT_COLOR = '#BFA5FF';
+
+// This is a placeholder for the generated logo. 
+// In a real scenario, we'd generate this once and save it.
+// For now, I'll use a stylized SVG logo that matches the brand.
+const NavBuilderLogo = () => (
+  <svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <rect width="40" height="40" rx="12" fill="#BFA5FF"/>
+    <path d="M12 12H18V18H12V12Z" fill="white"/>
+    <path d="M22 12H28V18H22V12Z" fill="white" fillOpacity="0.6"/>
+    <path d="M12 22H18V28H12V22Z" fill="white" fillOpacity="0.6"/>
+    <path d="M22 22H28V28H22V22Z" fill="white"/>
+    <path d="M18 15H22" stroke="white" strokeWidth="2" strokeLinecap="round"/>
+    <path d="M15 18V22" stroke="white" strokeWidth="2" strokeLinecap="round"/>
+    <path d="M25 18V22" stroke="white" strokeWidth="2" strokeLinecap="round"/>
+    <path d="M18 25H22" stroke="white" strokeWidth="2" strokeLinecap="round"/>
+  </svg>
+);
+
+export default function App() {
+  const [items, setItems] = useState<NavItem[]>([
+    {
+      id: '1',
+      title: 'Example',
+      url: 'https://example.com',
+      description: '这是一个示例网站',
+      logo: ''
+    }
+  ]);
+  const [siteTitle, setSiteTitle] = useState('我的导航页');
+  const [isGenerating, setIsGenerating] = useState(false);
+
+  const addItem = () => {
+    const newItem: NavItem = {
+      id: Math.random().toString(36).substr(2, 9),
+      title: '',
+      url: '',
+      description: '',
+      logo: ''
+    };
+    setItems([...items, newItem]);
+  };
+
+  const removeItem = (id: string) => {
+    setItems(items.filter(item => item.id !== id));
+  };
+
+  const updateItem = (id: string, field: keyof NavItem, value: string) => {
+    setItems(items.map(item => item.id === id ? { ...item, [field]: value } : item));
+  };
+
+  const generateHTML = () => {
+    const cardsHTML = items.map(item => {
+      const displayTitle = item.title?.trim() || '未命名页面';
+      const logoContent = item.logo 
+        ? `<img src="${item.logo}" alt="${displayTitle}" onerror="this.parentElement.innerHTML='<div class=\"placeholder-logo\">${displayTitle.charAt(0)}</div>'"/>`
+        : (item.title?.trim() 
+            ? `<div class="placeholder-logo">${item.title.trim().charAt(0).toUpperCase()}</div>`
+            : `<div class="placeholder-logo"><svg width="24" height="24" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="12" fill="#BFA5FF"/><path d="M12 12H18V18H12V12Z" fill="white"/><path d="M22 12H28V18H22V12Z" fill="white" fillOpacity="0.6"/><path d="M12 22H18V28H12V22Z" fill="white" fillOpacity="0.6"/><path d="M22 22H28V28H22V22Z" fill="white"/><path d="M18 15H22" stroke="white" strokeWidth="2" strokeLinecap="round"/><path d="M15 18V22" stroke="white" strokeWidth="2" strokeLinecap="round"/><path d="M25 18V22" stroke="white" strokeWidth="2" strokeLinecap="round"/><path d="M18 25H22" stroke="white" strokeWidth="2" strokeLinecap="round"/></svg></div>`);
+
+      return `
+      <a href="${item.url}" target="_blank" class="nav-card">
+        <div class="nav-card-content">
+          <div class="logo-container">
+            ${logoContent}
+          </div>
+          <div class="text-content">
+            <h3>${displayTitle}</h3>
+            <p>${item.description || '暂无说明'}</p>
+          </div>
+          <div class="external-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
+          </div>
+        </div>
+      </a>
+    `;
+    }).join('');
+
+    return `
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>${siteTitle}</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>${siteTitle}</h1>
+            <p class="subtitle">发现更多精彩内容</p>
+        </header>
+        <main class="nav-grid">
+            ${cardsHTML}
+        </main>
+        <footer>
+            <p>&copy; ${new Date().getFullYear()} ${siteTitle}. Generated by NavBuilder.</p>
+        </footer>
+    </div>
+</body>
+</html>
+    `.trim();
+  };
+
+  const generateCSS = () => {
+    return `
+:root {
+    --primary-color: ${DEFAULT_COLOR};
+    --bg-color: #f8f9fa;
+    --card-bg: #ffffff;
+    --text-main: #1a1a1a;
+    --text-muted: #666666;
+    --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    --shadow-hover: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background-color: var(--bg-color);
+    color: var(--text-main);
+    line-height: 1.5;
+    min-height: 100vh;
+}
+
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 4rem 2rem;
+}
+
+header {
+    text-align: center;
+    margin-bottom: 4rem;
+}
+
+header h1 {
+    font-size: 2.5rem;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+    color: var(--text-main);
+}
+
+.subtitle {
+    color: var(--text-muted);
+    font-size: 1.1rem;
+}
+
+.nav-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 1.5rem;
+}
+
+.nav-card {
+    text-decoration: none;
+    color: inherit;
+    background: var(--card-bg);
+    border-radius: 1rem;
+    padding: 1.25rem;
+    transition: all 0.3s ease;
+    box-shadow: var(--shadow);
+    border: 1px solid rgba(0,0,0,0.05);
+    position: relative;
+    overflow: hidden;
+}
+
+.nav-card:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-hover);
+    border-color: var(--primary-color);
+}
+
+.nav-card-content {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.logo-container {
+    width: 48px;
+    height: 48px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #f0f0f0;
+    border-radius: 0.75rem;
+    overflow: hidden;
+}
+
+.logo-container img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.placeholder-logo {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: var(--primary-color);
+}
+
+.text-content {
+    flex-grow: 1;
+    min-width: 0;
+}
+
+.text-content h3 {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin-bottom: 0.25rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.text-content p {
+    font-size: 0.875rem;
+    color: var(--text-muted);
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.external-icon {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    color: var(--primary-color);
+}
+
+.nav-card:hover .external-icon {
+    opacity: 1;
+}
+
+footer {
+    margin-top: 6rem;
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 0.875rem;
+}
+
+@media (max-width: 640px) {
+    .container {
+        padding: 2rem 1rem;
+    }
+    header h1 {
+        font-size: 2rem;
+    }
+}
+    `.trim();
+  };
+
+  const handleDownload = async () => {
+    setIsGenerating(true);
+    try {
+      const zip = new JSZip();
+      zip.file("index.html", generateHTML());
+      zip.file("style.css", generateCSS());
+      zip.file("README.md", `# ${siteTitle}\n\n这是一个由导航页制作工具生成的静态导航页面。\n\n## 如何使用\n\n1. 解压文件。\n2. 直接在浏览器中打开 \`index.html\` 即可查看。\n3. 你可以将这些文件上传到任何静态网站托管服务（如 GitHub Pages, Vercel, Netlify 等）。`);
+      
+      const content = await zip.generateAsync({ type: "blob" });
+      saveAs(content, `${siteTitle || 'navigation'}.zip`);
+    } catch (error) {
+      console.error("Export failed:", error);
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-[#fcfaff] text-slate-900 font-sans selection:bg-[#BFA5FF]/30">
+      {/* Header */}
+      <nav className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-slate-200">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between h-16 items-center">
+            <div className="flex items-center gap-2">
+              <div className="shadow-lg shadow-[#BFA5FF]/20 rounded-xl overflow-hidden">
+                <NavBuilderLogo />
+              </div>
+              <span className="text-xl font-bold tracking-tight">导航页制作工具</span>
+            </div>
+            <div className="flex items-center gap-4">
+              <button
+                onClick={handleDownload}
+                disabled={isGenerating || items.length === 0}
+                className="flex items-center gap-2 bg-[#BFA5FF] hover:bg-[#ac8eff] disabled:opacity-50 disabled:cursor-not-allowed text-white px-5 py-2.5 rounded-xl font-medium transition-all shadow-lg shadow-[#BFA5FF]/20 active:scale-95"
+              >
+                {isGenerating ? (
+                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : (
+                  <Download size={18} />
+                )}
+                <span>导出 ZIP</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </nav>
+
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
+          
+          {/* Left Panel: Editor */}
+          <div className="lg:col-span-5 space-y-8">
+            <section className="bg-white rounded-3xl p-8 shadow-sm border border-slate-100">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-8 h-8 bg-[#BFA5FF]/10 rounded-lg flex items-center justify-center text-[#BFA5FF]">
+                  <Info size={18} />
+                </div>
+                <h2 className="text-lg font-semibold">基础设置</h2>
+              </div>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-600 mb-1.5">站点标题</label>
+                  <input
+                    type="text"
+                    value={siteTitle}
+                    onChange={(e) => setSiteTitle(e.target.value)}
+                    placeholder="例如：我的常用链接"
+                    className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-[#BFA5FF] focus:border-transparent outline-none transition-all"
+                  />
+                </div>
+              </div>
+            </section>
+
+            <section className="bg-white rounded-3xl p-8 shadow-sm border border-slate-100">
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 bg-[#BFA5FF]/10 rounded-lg flex items-center justify-center text-[#BFA5FF]">
+                    <Globe size={18} />
+                  </div>
+                  <h2 className="text-lg font-semibold">目标页面 ({items.length})</h2>
+                </div>
+                <button
+                  onClick={addItem}
+                  className="p-2 bg-[#BFA5FF]/10 text-[#BFA5FF] hover:bg-[#BFA5FF] hover:text-white rounded-lg transition-all"
+                  title="添加链接"
+                >
+                  <Plus size={20} />
+                </button>
+              </div>
+
+              <div className="space-y-6">
+                <AnimatePresence mode="popLayout">
+                  {items.map((item, index) => (
+                    <motion.div
+                      key={item.id}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, scale: 0.95 }}
+                      className="p-6 rounded-2xl bg-slate-50 border border-slate-100 relative group"
+                    >
+                      <button
+                        onClick={() => removeItem(item.id)}
+                        className="absolute -top-2 -right-2 w-8 h-8 bg-white text-rose-500 rounded-full shadow-md flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-rose-50"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                      
+                      <div className="space-y-4">
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-[11px] uppercase tracking-wider font-bold text-slate-400 mb-1">页面标题 *</label>
+                            <input
+                              type="text"
+                              value={item.title}
+                              onChange={(e) => updateItem(item.id, 'title', e.target.value)}
+                              placeholder="标题"
+                              className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-[#BFA5FF] outline-none text-sm"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[11px] uppercase tracking-wider font-bold text-slate-400 mb-1">URL *</label>
+                            <input
+                              type="text"
+                              value={item.url}
+                              onChange={(e) => updateItem(item.id, 'url', e.target.value)}
+                              placeholder="https://..."
+                              className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-[#BFA5FF] outline-none text-sm"
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <label className="block text-[11px] uppercase tracking-wider font-bold text-slate-400 mb-1">说明 (可选)</label>
+                          <input
+                            type="text"
+                            value={item.description}
+                            onChange={(e) => updateItem(item.id, 'description', e.target.value)}
+                            placeholder="简短描述"
+                            className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-[#BFA5FF] outline-none text-sm"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] uppercase tracking-wider font-bold text-slate-400 mb-1">LOGO URL (可选)</label>
+                          <div className="flex gap-2">
+                            <input
+                              type="text"
+                              value={item.logo}
+                              onChange={(e) => updateItem(item.id, 'logo', e.target.value)}
+                              placeholder="图标地址"
+                              className="flex-grow px-3 py-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-[#BFA5FF] outline-none text-sm"
+                            />
+                            <div className="w-9 h-9 bg-white border border-slate-200 rounded-lg flex items-center justify-center text-slate-300 overflow-hidden">
+                              {item.logo ? (
+                                <img src={item.logo} alt="preview" className="w-full h-full object-cover" onError={(e) => (e.currentTarget.src = "")} />
+                              ) : (
+                                <ImageIcon size={16} />
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </motion.div>
+                  ))}
+                </AnimatePresence>
+
+                {items.length === 0 && (
+                  <div className="text-center py-12 border-2 border-dashed border-slate-200 rounded-3xl">
+                    <div className="w-12 h-12 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4 text-slate-400">
+                      <Plus size={24} />
+                    </div>
+                    <p className="text-slate-500">还没有添加任何链接</p>
+                    <button onClick={addItem} className="mt-4 text-[#BFA5FF] font-medium hover:underline">点击添加第一个</button>
+                  </div>
+                )}
+              </div>
+            </section>
+          </div>
+
+          {/* Right Panel: Preview */}
+          <div className="lg:col-span-7">
+            <div className="sticky top-28">
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 bg-[#BFA5FF]/10 rounded-lg flex items-center justify-center text-[#BFA5FF]">
+                    <Globe size={18} />
+                  </div>
+                  <h2 className="text-lg font-semibold">实时预览</h2>
+                </div>
+                <div className="flex gap-1.5">
+                  <div className="w-3 h-3 rounded-full bg-rose-400" />
+                  <div className="w-3 h-3 rounded-full bg-amber-400" />
+                  <div className="w-3 h-3 rounded-full bg-emerald-400" />
+                </div>
+              </div>
+
+              <div className="bg-white rounded-[2rem] shadow-2xl shadow-[#BFA5FF]/10 border border-slate-100 overflow-hidden aspect-[4/3] flex flex-col">
+                <div className="bg-slate-50 border-b border-slate-100 px-6 py-3 flex items-center gap-4">
+                  <div className="flex gap-2">
+                    <div className="w-2.5 h-2.5 rounded-full bg-slate-300" />
+                    <div className="w-2.5 h-2.5 rounded-full bg-slate-300" />
+                    <div className="w-2.5 h-2.5 rounded-full bg-slate-300" />
+                  </div>
+                  <div className="flex-grow bg-white border border-slate-200 rounded-full px-4 py-1 text-[10px] text-slate-400 flex items-center gap-2">
+                    <Globe size={10} />
+                    <span>preview.navbuilder.io</span>
+                  </div>
+                </div>
+                
+                <div className="flex-grow overflow-y-auto p-8 bg-[#f8f9fa]">
+                  <div className="text-center mb-12">
+                    <h1 className="text-3xl font-bold text-slate-900 mb-2">{siteTitle || '站点标题'}</h1>
+                    <p className="text-slate-500 text-sm">发现更多精彩内容</p>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {items.map(item => (
+                      <div key={item.id} className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex items-center gap-4 hover:border-[#BFA5FF] transition-colors group">
+          <div className="w-12 h-12 flex-shrink-0 bg-slate-50 rounded-xl flex items-center justify-center overflow-hidden">
+                          {item.logo ? (
+                            <img src={item.logo} alt="" className="w-full h-full object-cover" />
+                          ) : (
+                            item.title?.trim() ? (
+                              <span className="text-xl font-bold text-[#BFA5FF]">{item.title.trim().charAt(0).toUpperCase()}</span>
+                            ) : (
+                              <div className="scale-75">
+                                <NavBuilderLogo />
+                              </div>
+                            )
+                          )}
+                        </div>
+                        <div className="min-w-0 flex-grow">
+                          <h3 className="font-semibold text-slate-900 truncate">{item.title || '未命名'}</h3>
+                          <p className="text-xs text-slate-500 line-clamp-1">{item.description || '暂无说明'}</p>
+                        </div>
+                        <ExternalLink size={14} className="text-slate-300 group-hover:text-[#BFA5FF] transition-colors" />
+                      </div>
+                    ))}
+                    {items.length === 0 && (
+                      <div className="col-span-full text-center py-20 text-slate-400 italic">
+                        预览区域将显示您的链接卡片
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Features List */}
+              <div className="mt-8 grid grid-cols-3 gap-4">
+                {[
+                  { icon: <CheckCircle2 size={16} />, text: "响应式布局" },
+                  { icon: <CheckCircle2 size={16} />, text: "一键导出 ZIP" },
+                  { icon: <CheckCircle2 size={16} />, text: "自定义样式" }
+                ].map((f, i) => (
+                  <div key={i} className="flex items-center gap-2 text-xs text-slate-500 bg-white/50 py-2 px-3 rounded-full border border-slate-100">
+                    <span className="text-emerald-500">{f.icon}</span>
+                    {f.text}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
+
+      <footer className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 border-t border-slate-200 mt-12">
+        <div className="flex justify-center items-center">
+          <div className="flex items-center gap-2 text-slate-400">
+            <NavBuilderLogo />
+            <span className="text-sm font-medium">NavBuilder &copy; 2026</span>
+          </div>
+        </div>
+      </footer>
+    </div>
+  );
+}
