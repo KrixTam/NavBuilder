@@ -82,7 +82,7 @@ export default function App() {
     const cardsHTML = items.map(item => {
       const displayTitle = item.title?.trim() || '未命名页面';
       const logoContent = item.logo 
-        ? `<img src="${item.logo}" alt="${displayTitle}" onerror="this.parentElement.innerHTML='<div class=\"placeholder-logo\">${displayTitle.charAt(0)}</div>'"/>`
+        ? `<img src="${item.logo}" alt="${displayTitle}" onerror="this.style.display='none';this.parentElement.innerHTML='<div class=\\'placeholder-logo\\'>${displayTitle.charAt(0)}</div>'"/>`
         : (item.title?.trim() 
             ? `<div class="placeholder-logo">${item.title.trim().charAt(0).toUpperCase()}</div>`
             : `<div class="placeholder-logo"><svg width="24" height="24" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="12" fill="#BFA5FF"/><path d="M12 12H18V18H12V12Z" fill="white"/><path d="M22 12H28V18H22V12Z" fill="white" fillOpacity="0.6"/><path d="M12 22H18V28H12V22Z" fill="white" fillOpacity="0.6"/><path d="M22 22H28V28H22V22Z" fill="white"/><path d="M18 15H22" stroke="white" strokeWidth="2" strokeLinecap="round"/><path d="M15 18V22" stroke="white" strokeWidth="2" strokeLinecap="round"/><path d="M25 18V22" stroke="white" strokeWidth="2" strokeLinecap="round"/><path d="M18 25H22" stroke="white" strokeWidth="2" strokeLinecap="round"/></svg></div>`);
@@ -113,7 +113,6 @@ export default function App() {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>${siteTitle}</title>
     <link rel="stylesheet" href="style.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 </head>
 <body>
     <div class="container">
@@ -135,6 +134,14 @@ export default function App() {
 
   const generateCSS = () => {
     return `
+@font-face {
+    font-family: 'Inter';
+    src: url('Inter-latin.woff2') format('woff2');
+    font-weight: 400 600;
+    font-style: normal;
+    font-display: swap;
+}
+
 :root {
     --primary-color: ${DEFAULT_COLOR};
     --bg-color: #f8f9fa;
@@ -295,6 +302,14 @@ footer {
     setIsGenerating(true);
     try {
       const zip = new JSZip();
+      
+      // Fetch local font file
+      const fontResponse = await fetch('/Inter-latin.woff2');
+      if (fontResponse.ok) {
+        const fontBlob = await fontResponse.blob();
+        zip.file("Inter-latin.woff2", fontBlob);
+      }
+
       zip.file("index.html", generateHTML());
       zip.file("style.css", generateCSS());
       zip.file("README.md", `# ${siteTitle}\n\n这是一个由NavBuilder制作工具生成的静态导航页面。\n\n## 如何使用\n\n1. 解压文件。\n2. 直接在浏览器中打开 \`index.html\` 即可查看。\n3. 你可以将这些文件上传到任何静态网站托管服务（如 GitHub Pages, Vercel, Netlify 等）。`);
