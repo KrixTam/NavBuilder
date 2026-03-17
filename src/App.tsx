@@ -48,6 +48,7 @@ export default function App() {
   ]);
   const [siteTitle, setSiteTitle] = useState('我的导航页');
   const [isGenerating, setIsGenerating] = useState(false);
+  const [imgErrors, setImgErrors] = useState<Record<string, boolean>>({});
 
   const addItem = () => {
     const newItem: NavItem = {
@@ -62,9 +63,17 @@ export default function App() {
 
   const removeItem = (id: string) => {
     setItems(items.filter(item => item.id !== id));
+    setImgErrors(prev => {
+      const newErrors = { ...prev };
+      delete newErrors[id];
+      return newErrors;
+    });
   };
 
   const updateItem = (id: string, field: keyof NavItem, value: string) => {
+    if (field === 'logo') {
+      setImgErrors(prev => ({ ...prev, [id]: false }));
+    }
     setItems(items.map(item => item.id === id ? { ...item, [field]: value } : item));
   };
 
@@ -498,8 +507,13 @@ footer {
                     {items.map(item => (
                       <div key={item.id} className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex items-center gap-4 hover:border-[#BFA5FF] transition-colors group">
           <div className="w-12 h-12 flex-shrink-0 bg-slate-50 rounded-xl flex items-center justify-center overflow-hidden">
-                          {item.logo ? (
-                            <img src={item.logo} alt="" className="w-full h-full object-cover" />
+                          {item.logo && !imgErrors[item.id] ? (
+                            <img 
+                              src={item.logo} 
+                              alt="" 
+                              className="w-full h-full object-cover" 
+                              onError={() => setImgErrors(prev => ({ ...prev, [item.id]: true }))}
+                            />
                           ) : (
                             item.title?.trim() ? (
                               <span className="text-xl font-bold text-[#BFA5FF]">{item.title.trim().charAt(0).toUpperCase()}</span>
