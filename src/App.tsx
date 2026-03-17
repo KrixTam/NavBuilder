@@ -3,8 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from 'react';
-import { Plus, Trash2, Download, ExternalLink, Info, Image as ImageIcon, Globe, CheckCircle2 } from 'lucide-react';
+import React, { useState, useRef } from 'react';
+import { Plus, Trash2, Download, ExternalLink, Info, Image as ImageIcon, Globe, CheckCircle2, Upload, FileJson } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import JSZip from 'jszip';
 import { saveAs } from 'file-saver';
@@ -49,6 +49,7 @@ export default function App() {
   const [siteTitle, setSiteTitle] = useState('我的导航页');
   const [isGenerating, setIsGenerating] = useState(false);
   const [imgErrors, setImgErrors] = useState<Record<string, boolean>>({});
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const addItem = () => {
     const newItem: NavItem = {
@@ -296,7 +297,7 @@ footer {
       const zip = new JSZip();
       zip.file("index.html", generateHTML());
       zip.file("style.css", generateCSS());
-      zip.file("README.md", `# ${siteTitle}\n\n这是一个由导航页制作工具生成的静态导航页面。\n\n## 如何使用\n\n1. 解压文件。\n2. 直接在浏览器中打开 \`index.html\` 即可查看。\n3. 你可以将这些文件上传到任何静态网站托管服务（如 GitHub Pages, Vercel, Netlify 等）。`);
+      zip.file("README.md", `# ${siteTitle}\n\n这是一个由NavBuilder制作工具生成的静态导航页面。\n\n## 如何使用\n\n1. 解压文件。\n2. 直接在浏览器中打开 \`index.html\` 即可查看。\n3. 你可以将这些文件上传到任何静态网站托管服务（如 GitHub Pages, Vercel, Netlify 等）。`);
       
       const content = await zip.generateAsync({ type: "blob" });
       saveAs(content, `${siteTitle || 'navigation'}.zip`);
@@ -305,6 +306,40 @@ footer {
     } finally {
       setIsGenerating(false);
     }
+  };
+
+  const handleExportConfig = () => {
+    const config = {
+      siteTitle,
+      items
+    };
+    const blob = new Blob([JSON.stringify(config, null, 2)], { type: 'application/json' });
+    saveAs(blob, `nav-config-${siteTitle || 'default'}.json`);
+  };
+
+  const handleImportConfig = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const content = e.target?.result as string;
+        const config = JSON.parse(content);
+        
+        if (config.siteTitle !== undefined) setSiteTitle(config.siteTitle);
+        if (Array.isArray(config.items)) {
+          setItems(config.items);
+          setImgErrors({}); // Reset image errors for new items
+        }
+      } catch (error) {
+        console.error("Failed to parse config file:", error);
+        alert("导入失败：配置文件格式不正确。");
+      }
+    };
+    reader.readAsText(file);
+    // Reset file input so same file can be imported again if needed
+    event.target.value = '';
   };
 
   return (
@@ -317,9 +352,32 @@ footer {
               <div className="shadow-lg shadow-[#BFA5FF]/20 rounded-xl overflow-hidden">
                 <NavBuilderLogo />
               </div>
-              <span className="text-xl font-bold tracking-tight">导航页制作工具</span>
+              <span className="text-xl font-bold tracking-tight">NavBuilder导航页制作工具</span>
             </div>
             <div className="flex items-center gap-4">
+              <input
+                type="file"
+                ref={fileInputRef}
+                onChange={handleImportConfig}
+                accept=".json"
+                className="hidden"
+              />
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                className="flex items-center gap-2 text-slate-600 hover:text-slate-900 px-3 py-2 rounded-xl font-medium transition-all hover:bg-slate-100"
+                title="导入配置文件 (JSON)"
+              >
+                <Upload size={18} />
+                <span className="hidden sm:inline">导入配置</span>
+              </button>
+              <button
+                onClick={handleExportConfig}
+                className="flex items-center gap-2 text-slate-600 hover:text-slate-900 px-3 py-2 rounded-xl font-medium transition-all hover:bg-slate-100"
+                title="导出配置文件 (JSON)"
+              >
+                <Download size={18} />
+                <span className="hidden sm:inline">导出配置</span>
+              </button>
               <button
                 onClick={handleDownload}
                 disabled={isGenerating || items.length === 0}
